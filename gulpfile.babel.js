@@ -125,7 +125,7 @@ function jsLint () {
 }
 
 function zipFiles () {
-    return src('dist/*')
+    return src('dist')
         .pipe(zip('snippetify.zip'))
         .pipe(dest('./'))
 }
