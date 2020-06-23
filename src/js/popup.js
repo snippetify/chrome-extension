@@ -7,7 +7,7 @@ import {
 } from './contants'
 
 /**
- * Browser action. Popup script.
+ * chrome action. Popup script.
  * @license MIT
  * @author Evens Pierre <pierre.evens16@gmail.com>
 */
@@ -16,13 +16,15 @@ class Popup {
         this.hydrateUserCard()
         $(document).ready(() => {
             this.hydrateSnippetsList()
-            this.addListenersToViews()
         })
     }
 
     hydrateSnippetsList () {
         chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-            chrome.tabs.sendMessage(tabs[0].id, { target: CS_TARGET, type: CS_FOUND_SNIPPETS }, res => {
+            const port = chrome.tabs.connect(tabs[0].id)
+            port.postMessage({ target: CS_TARGET, type: CS_FOUND_SNIPPETS })
+            port.onMessage.addListener(res => {
+                if (!res || !res.payload) return
                 const items = res.payload
                 const container = $('.snippet-box .snippet-list')
                 if (items && items.length > 0) {
@@ -40,6 +42,12 @@ class Popup {
                         container.append(row)
                     })
                     $('.snippet-box .snippet-list pre').each((_, el) => { (new SimpleBar(el)).recalculate() })
+
+                    // Close window
+                    $('#app').on('click', '[data-uid]', e => {
+                        window.close() // Close Popup
+                        port.postMessage({ target: CS_TARGET, type: GO_TO_SNIPPET, payload: { uid: $(e.currentTarget).data('uid') } })
+                    })
                 }
             })
         })
@@ -51,6 +59,7 @@ class Popup {
             const spinner = $('#spinner')
             const userInfo = data[SNIPPETIFY_SAVE_USER]
             if (!userInfo) {
+                spinner.hide()
                 userCard.hide()
             } else {
                 userCard.hide().attr({ src: SNIPPETIFY_USER_CARD_URL })
@@ -59,15 +68,6 @@ class Popup {
                     spinner.hide()
                 })
             }
-        })
-    }
-
-    addListenersToViews () {
-        $('#app').on('click', '[data-uid]', e => {
-            window.close() // Close Popup
-            chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-                chrome.tabs.sendMessage(tabs[0].id, { target: CS_TARGET, type: GO_TO_SNIPPET, payload: { uid: $(e.currentTarget).data('uid') } })
-            })
         })
     }
 }

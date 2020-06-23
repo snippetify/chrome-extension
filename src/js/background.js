@@ -2,6 +2,7 @@ import $ from 'jquery'
 import {
     CS_TARGET,
     SNIPPETIFY_URL,
+    REFRESH_IFRAME,
     CS_SNIPPETS_COUNT,
     SNIPPETIFY_DOMAIN,
     SNIPPETIFY_API_URL,
@@ -46,9 +47,9 @@ class Background {
         })
 
         // Add listener
-        chrome.contextMenus.onClicked.addListener(function (info) {
+        chrome.contextMenus.onClicked.addListener(info => {
             chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-                chrome.tabs.sendMessage(tabs[0].id, {
+                chrome.tabs.connect(tabs[0].id).postMessage({
                     target: CS_TARGET,
                     type: REVIEW_SELECTED_SNIPPET,
                     payload: { title: '', code: info.selectionText, description: '', tags: [], type: 'wiki' }
@@ -102,24 +103,33 @@ class Background {
      * @returns void
     */
     navigationEventListener () {
-        // Listen for tab changed
-        chrome.tabs.onActivated.addListener(info => {
-            chrome.tabs.sendMessage(info.tabId, { target: CS_TARGET, type: CS_SNIPPETS_COUNT }, e => {
-                if (e) chrome.browserAction.setBadgeText({ text: `${e.payload || ''}` })
-            })
-        })
-
-        // Listen for page loaded
-        chrome.webNavigation.onCompleted.addListener(info => {
-            chrome.tabs.sendMessage(info.tabId, { target: CS_TARGET, type: CS_SNIPPETS_COUNT }, e => {
-                if (e) chrome.browserAction.setBadgeText({ text: `${e.payload || ''}` })
-            })
-        })
-
         // On url changed
         chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-            chrome.tabs.sendMessage(tabId, { target: CS_TARGET, type: CS_SNIPPETS_COUNT }, e => {
-                if (e) chrome.browserAction.setBadgeText({ text: `${e.payload || ''}` })
+            chrome.browserAction.setBadgeText({ text: '' })
+            if (tab.url.includes('snippetify.com')) {
+                chrome.browserAction.disable(tabId)
+                return
+            }
+            const port = chrome.tabs.connect(tabId)
+            port.postMessage({ target: CS_TARGET, type: CS_SNIPPETS_COUNT })
+            port.onMessage.addListener(data => {
+                if (data) chrome.browserAction.setBadgeText({ text: `${data.payload || ''}` })
+            })
+        })
+
+        // Listen for tab changed
+        chrome.tabs.onActivated.addListener(info => {
+            chrome.tabs.get(info.tabId, tab => {
+                chrome.browserAction.setBadgeText({ text: '' })
+                if (tab.url.includes('snippetify.com')) {
+                    chrome.browserAction.disable(tab.id)
+                    return
+                }
+                const port = chrome.tabs.connect(tab.id)
+                port.postMessage({ target: CS_TARGET, type: CS_SNIPPETS_COUNT })
+                port.onMessage.addListener(data => {
+                    if (data) chrome.browserAction.setBadgeText({ text: `${data.payload || ''}` })
+                })
             })
         })
     }
@@ -140,6 +150,7 @@ class Background {
             }
         }).done(res => {
             chrome.storage.local.set({ [SNIPPETIFY_SAVE_USER]: res.data })
+            this.postMessageToTabs({ target: CS_TARGET, type: REFRESH_IFRAME }) // Refresh iframe
         }).fail((xhr, status) => {
             chrome.storage.local.remove(SNIPPETIFY_SAVE_USER)
         })
@@ -152,6 +163,19 @@ class Background {
     logoutUser () {
         chrome.storage.local.remove(SNIPPETIFY_API_TOKEN)
         chrome.storage.local.remove(SNIPPETIFY_SAVE_USER)
+        this.postMessageToTabs({ target: CS_TARGET, type: REFRESH_IFRAME }) // Refresh iframe
+    }
+
+    /**
+     * Post message to tabs.
+     * @returns void
+    */
+    postMessageToTabs (payload) {
+        chrome.tabs.query({}, tabs => {
+            tabs.forEach(tab => {
+                chrome.tabs.connect(tab.id).postMessage(payload)
+            })
+        })
     }
 }
 

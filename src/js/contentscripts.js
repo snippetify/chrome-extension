@@ -1,6 +1,7 @@
 import {
     CS_TARGET,
     GO_TO_SNIPPET,
+    REFRESH_IFRAME,
     CS_SNIPPETS_COUNT,
     CS_FOUND_SNIPPETS,
     REVIEW_SELECTED_SNIPPET,
@@ -15,10 +16,11 @@ import {
 class ContentScripts {
     constructor () {
         this.insertIframeToDom()
-        this.snippetReviewListener()
         this.navigationEventListener()
         this.goToSnippetEventListener()
         this.insertSnippetActionToDom()
+        this.snippetReviewEventListener()
+        this.refreshIframeEventListener()
     }
 
     /**
@@ -27,28 +29,30 @@ class ContentScripts {
      * @returns void
      */
     navigationEventListener () {
-        chrome.runtime.onMessage.addListener((e, sender, callback) => {
-            if (e.target === CS_TARGET && e.type === CS_SNIPPETS_COUNT) { // Snippet count
-                const payload = { payload: $('pre > code, div.highlight > pre').length }
-                callback(payload)
-            } else if (e.target === CS_TARGET && e.type === CS_FOUND_SNIPPETS) { // Snippet list
-                const items = []
-                $('pre > code, div.highlight > pre').each((_, el) => {
-                    items.push(this.fetchSnippetFromDom($(el).parent().first()))
-                })
-                const payload = { payload: items }
-                callback(payload)
-            }
+        chrome.runtime.onConnect.addListener(port => {
+            port.onMessage.addListener(data => {
+                if (data.target === CS_TARGET && data.type === CS_SNIPPETS_COUNT) { // Snippet count
+                    port.postMessage({ payload: $('pre > code, div.highlight > pre').length })
+                } else if (data.target === CS_TARGET && data.type === CS_FOUND_SNIPPETS) { // Snippet list
+                    const items = []
+                    $('pre > code, div.highlight > pre').each((_, el) => {
+                        items.push(this.fetchSnippetFromDom($(el).parent().first()))
+                    })
+                    port.postMessage({ payload: items })
+                }
+            })
         })
     }
 
     /**
-     * Listen selected snippet event from browser popup.
+     * Listen selected snippet event from chrome popup.
      * @returns void
      */
-    snippetReviewListener () {
-        chrome.runtime.onMessage.addListener(e => {
-            if (e.target === CS_TARGET && e.type === REVIEW_SELECTED_SNIPPET) this.openIframe(e.payload)
+    snippetReviewEventListener () {
+        chrome.runtime.onConnect.addListener(port => {
+            port.onMessage.addListener(data => {
+                if (data.target === CS_TARGET && data.type === REVIEW_SELECTED_SNIPPET) this.openIframe(data.payload)
+            })
         })
     }
 
@@ -57,12 +61,14 @@ class ContentScripts {
      * @returns void
      */
     goToSnippetEventListener () {
-        chrome.runtime.onMessage.addListener(e => {
-            if (e.target === CS_TARGET && e.type === GO_TO_SNIPPET) {
-                $('html, body').animate({
-                    scrollTop: (parseInt($(`[data-uid="${e.payload.uid}"]`).offset().top) - 100)
-                }, 2000)
-            }
+        chrome.runtime.onConnect.addListener(port => {
+            port.onMessage.addListener(data => {
+                if (data.target === CS_TARGET && data.type === GO_TO_SNIPPET) {
+                    $('html, body').animate({
+                        scrollTop: (parseInt($(`[data-uid="${data.payload.uid}"]`).offset().top) - 100)
+                    }, 1000)
+                }
+            })
         })
     }
 
@@ -80,7 +86,7 @@ class ContentScripts {
             tags: this.fetchTagsFromDom(parent),
             meta: {
                 target: {
-                    type: 'chrome-ext',
+                    type: 'firefox-ext',
                     name: chrome.runtime.getManifest().name,
                     version: chrome.runtime.getManifest().version
                 },
@@ -173,6 +179,7 @@ class ContentScripts {
     insertIframeToDom () {
         // Append frame to dom when there are code tags
         if ($('pre > code, div.highlight > pre').length > 0) {
+            // Insert iframe
             $('body').append($('<iframe>')
                 .addClass('snippetify-iframe hide').attr({
                     scrolling: 'no',
@@ -187,6 +194,22 @@ class ContentScripts {
                 if (e.data && e.data.type === 'NEW_SNIPPET' && e.data.action === 'close') this.closeIframe()
             })
         }
+    }
+
+    /**
+     * Refresh iframe
+     * When user login or logout
+     * @returns void
+     */
+    refreshIframeEventListener () {
+        chrome.runtime.onConnect.addListener(port => {
+            port.onMessage.addListener(data => {
+                if (data.target === CS_TARGET && data.type === REFRESH_IFRAME) {
+                    $('#snippetifyIframe').attr({ src: ' ' })
+                    $('#snippetifyIframe').attr({ src: SNIPPETIFY_NEW_SNIPPET_URL })
+                }
+            })
+        })
     }
 
     /**
