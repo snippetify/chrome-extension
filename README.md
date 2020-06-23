@@ -29,7 +29,7 @@ npm run build
 
 After building it you will find the add-on in the dist folder.
 
-Load it to chrome (about:debugging) by selecting any file on the dist folder, and start using it.
+Load it to chrome ([chrome://extensions/](chrome://extensions/)) by selecting any file on the dist folder, and start using it.
 
 ## Changelog
 
