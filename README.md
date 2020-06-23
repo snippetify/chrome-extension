@@ -33,7 +33,7 @@ Load it to chrome (about:debugging) by selecting any file on the dist folder, an
 
 ## Changelog
 
-Please see [CHANGELOG](https://github.com/spatie/laravel-translatable/blob/master/CHANGELOG.md) for more information what has changed recently.
+Please see [CHANGELOG](https://github.com/snippetify/chrome-extension/blob/master/CHANGELOG.md) for more information what has changed recently.
 
 ## Testing
 
