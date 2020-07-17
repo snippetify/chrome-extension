@@ -90,7 +90,7 @@ class ContentScripts {
                     name: chrome.runtime.getManifest().name,
                     version: chrome.runtime.getManifest().version
                 },
-                webiste: {
+                website: {
                     url: window.location.href,
                     name: window.location.hostname,
                     brand: $('[property="og:image"]').attr('content')

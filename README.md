@@ -8,7 +8,7 @@ This plugin allows you to save to [**Snippetify**](https://snippetify.com) any s
 
 ## How to use it
 
-To use this plugin you can download it from [Chrome Web Store](https://chrome.google.com/webstore/category/extensions) or you can clone it and use it. 
+To use this plugin you can download it from [Chrome Web Store](https://chrome.google.com/webstore/detail/snippetify/lpmkkgnllkffcmmhidnahpnhjcbhepdk) or you can clone it and use it. 
 
 For the second option follow these steps.
 
